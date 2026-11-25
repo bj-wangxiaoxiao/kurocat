@@ -86,6 +86,20 @@ interface SimpleLimb3D {
 
 const CAP_GEO = new THREE.SphereGeometry(1, 10, 8);
 
+/**
+ * Limb end caps are plain spheres, so they carry no `along` attribute and the fur shader reads
+ * them as along=0 (limb root). Bake the correct value in so the tail/arm tip keeps its tip colour.
+ */
+function createCapGeometry(along: number): THREE.SphereGeometry {
+  const geo = CAP_GEO.clone();
+  const count = geo.attributes.position.count;
+  geo.setAttribute('along', new THREE.BufferAttribute(new Float32Array(count).fill(along), 1));
+  return geo;
+}
+
+const CAP_GEO_START = createCapGeometry(0);
+const CAP_GEO_END = createCapGeometry(1);
+
 function createCleanLimb(
   parent: THREE.Object3D,
   opts: {
@@ -106,7 +120,7 @@ function createCleanLimb(
   if (opts.capStart !== false) capTs.push(0);
   if (opts.capEnd !== false) capTs.push(1);
   for (let i = 0; i < capTs.length; i++) {
-    const cap = new THREE.Mesh(CAP_GEO, opts.fill);
+    const cap = new THREE.Mesh(capTs[i] >= 1 ? CAP_GEO_END : CAP_GEO_START, opts.fill);
     cap.renderOrder = order;
     parent.add(cap);
     caps.push(cap);
