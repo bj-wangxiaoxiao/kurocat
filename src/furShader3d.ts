@@ -46,6 +46,7 @@ export interface FurPalette3D {
   point: string;
   earOuter: string | null;
   tailBase: string | null;
+  tailTip?: string | null;
   inner: string;
   stripes: number;
   muzzle: number;
@@ -339,6 +340,10 @@ export function resolveFurPalette3D(skin: CatSkinConfig, style: RenderStyle3D): 
           skin.tailColor && skin.tailColor.toLowerCase() !== (skin.furColor || '').toLowerCase()
             ? skin.tailColor
             : null,
+        tailTip:
+          skin.tailTipColor && skin.tailTipColor.toLowerCase() !== (skin.furColor || '').toLowerCase()
+            ? skin.tailTipColor
+            : null,
         inner: skin.earInnerColor || '#f0bcc0',
         stripes: pat === 'tabby' ? 1 : 0,
         muzzle: pat === 'tabby' || pat === 'bicolor' || pat === 'tuxedo' ? 1 : 0,
@@ -403,6 +408,8 @@ export class FurShaderSystem {
       uEarOuterAmt: { value: 0 },
       uTailBase: { value: new THREE.Color('#141315') },
       uTailBaseAmt: { value: 0 },
+      uTailTip: { value: new THREE.Color('#141315') },
+      uTailTipAmt: { value: 0 },
       uSpotCount: { value: 0 },
       uSpotPos: { value: Array.from({ length: MAX_CUSTOM_SPOTS }, () => new THREE.Vector4()) },
       uSpotCol: { value: Array.from({ length: MAX_CUSTOM_SPOTS }, () => new THREE.Vector4()) },
@@ -515,8 +522,8 @@ export class FurShaderSystem {
     `;
 
     const fragmentShader = `
-      uniform vec3 uFur, uLight, uDark, uPatchA, uPatchB, uPoint, uInner, uPawColor, uEarOuter, uTailBase;
-      uniform float uStripes, uMuzzle, uBib, uCalico, uTuxedo, uPoints, uInnerAmt, uShade, uIsDarkFur, uEarOuterAmt, uTailBaseAmt;
+      uniform vec3 uFur, uLight, uDark, uPatchA, uPatchB, uPoint, uInner, uPawColor, uEarOuter, uTailBase, uTailTip;
+      uniform float uStripes, uMuzzle, uBib, uCalico, uTuxedo, uPoints, uInnerAmt, uShade, uIsDarkFur, uEarOuterAmt, uTailBaseAmt, uTailTipAmt;
       uniform int uSpotCount;
       uniform vec4 uSpotPos[${MAX_CUSTOM_SPOTS}];
       uniform vec4 uSpotCol[${MAX_CUSTOM_SPOTS}];
@@ -748,6 +755,11 @@ export class FurShaderSystem {
           }
         #endif
 
+        #ifdef TAIL
+          // Fluffy tail tip colour (vAlong: 0 at root -> 1 at tip), feathered over the last stretch
+          col = mix(col, uTailTip, smoothstep(0.70, 0.90, vAlong) * uTailTipAmt);
+        #endif
+
         // Designer-vinyl / soft matte-velvet 3D studio lighting (inspired by KuroCat app icon — ZERO KeyCat white outline!)
         vec3 n = normalize(vNormal);
         vec3 v = normalize(vViewDir);
@@ -832,6 +844,12 @@ export class FurShaderSystem {
       this.uniforms.uTailBaseAmt.value = 1.0;
     } else {
       this.uniforms.uTailBaseAmt.value = 0.0;
+    }
+    if (p.tailTip) {
+      setColor('uTailTip', p.tailTip);
+      this.uniforms.uTailTipAmt.value = 1.0;
+    } else {
+      this.uniforms.uTailTipAmt.value = 0.0;
     }
 
     const list = Array.isArray(spots) ? spots.slice(0, MAX_CUSTOM_SPOTS) : [];
