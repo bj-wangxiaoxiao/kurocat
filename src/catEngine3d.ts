@@ -56,6 +56,18 @@ interface PawTrack3D {
   tuckWeight: number;
 }
 
+/** Idle beats the pet plays by itself when nothing else is happening. */
+const IDLE_ACT_POOL: IdleAct3D['kind'][] = ['tilt', 'tilt', 'ear', 'slowBlink', 'look', 'tail', 'knead'];
+
+const IDLE_ACT_DUR: Record<IdleAct3D['kind'], number> = {
+  tilt: 1.9,
+  ear: 0.46,
+  slowBlink: 1.45,
+  look: 2.1,
+  tail: 1.1,
+  knead: 2.0,
+};
+
 interface Popup3D {
   keyId: string;
   sprite: THREE.Sprite;
@@ -77,7 +89,7 @@ interface Fx3D {
 }
 
 interface IdleAct3D {
-  kind: 'tilt' | 'ear' | 'slowBlink' | 'look' | 'tail';
+  kind: 'tilt' | 'ear' | 'slowBlink' | 'look' | 'tail' | 'knead';
   t0: number;
   dur: number;
   side: -1 | 1;
@@ -797,6 +809,7 @@ export class KuroCatEngine3D {
   private lastSlam = -100;
   private curiousUntil = -100;
   private idleAct: IdleAct3D | null = null;
+  private idleTapPhase = -1;
   private nextIdleAct = 4.5;
 
   private readonly tmpV1 = new THREE.Vector3();
@@ -2091,6 +2104,41 @@ export class KuroCatEngine3D {
     this.wakeRendering();
   }
 
+  /** Start one idle beat (used by the random picker and by the public trigger). */
+  private beginIdleAct(kind: IdleAct3D['kind'], side: -1 | 1): void {
+    this.idleAct = { kind, t0: this.elapsed, dur: IDLE_ACT_DUR[kind], side };
+    this.wakeRendering();
+  }
+
+  /** Play a specific idle beat immediately, e.g. from an AI companion or a debug hook. */
+  public triggerIdleAct(raw: string): boolean {
+    const key = raw.trim().toLowerCase().replace(/[\s-]+/g, '_');
+    const map: Record<string, IdleAct3D['kind']> = {
+      tilt: 'tilt',
+      ear: 'ear',
+      slow_blink: 'slowBlink',
+      look: 'look',
+      tail: 'tail',
+      knead: 'knead',
+      make_biscuits: 'knead',
+    };
+    const kind = map[key];
+    if (!kind) return false;
+    this.beginIdleAct(kind, Math.random() < 0.5 ? -1 : 1);
+    return true;
+  }
+
+  /** Idle paw tap: hits a keycap visually without pretending the user pressed it. */
+  private idlePawTap(paw: PawTrack3D, keyId: string): void {
+    paw.from.copy(paw.pos);
+    paw.keyId = keyId;
+    paw.t0 = this.elapsed;
+    paw.dur = 0.10;
+    paw.down = true;
+    paw.lastActive = this.elapsed;
+    this.sSquash.kick(0.06);
+  }
+
   public onKeyDown(vk: number, repeat = false): void {
     if (this.privacyMode) {
       if (!repeat) {
@@ -2535,16 +2583,9 @@ export class KuroCatEngine3D {
       !this.isCross &&
       !curiousNow
     ) {
-      const kinds: IdleAct3D['kind'][] = ['tilt', 'tilt', 'ear', 'slowBlink', 'look', 'tail'];
-      const kind = kinds[Math.floor(Math.random() * kinds.length)];
-      const durMap: Record<IdleAct3D['kind'], number> = {
-        tilt: 1.9,
-        ear: 0.46,
-        slowBlink: 1.45,
-        look: 2.1,
-        tail: 1.1,
-      };
-      this.idleAct = { kind, t0: t, dur: durMap[kind], side: Math.random() < 0.5 ? -1 : 1 };
+      const kind = IDLE_ACT_POOL[Math.floor(Math.random() * IDLE_ACT_POOL.length)];
+      const side: -1 | 1 = Math.random() < 0.5 ? -1 : 1;
+      this.beginIdleAct(kind, side);
       this.nextIdleAct = t + 3.8 + Math.random() * 4.5;
     }
     const act = this.idleAct;
@@ -2630,6 +2671,22 @@ export class KuroCatEngine3D {
         targetGazeX = mix(targetGazeX, act.side * 0.85, actEnv);
       }
     }
+    // 「踩奶」kneading: alternate the two front paws on the space bar while the beat plays.
+    if (act && act.kind === 'knead' && actEnv > 0.18) {
+      const phase = Math.floor((t - act.t0) / 0.26);
+      if (phase !== this.idleTapPhase) {
+        this.idleTapPhase = phase;
+        this.idlePawTap(this.paws[phase % 2 === 0 ? 'L' : 'R'], 'space');
+      }
+    } else {
+      this.idleTapPhase = -1;
+    }
+    for (const pw of [this.paws.L, this.paws.R]) {
+      if (pw.down && t - pw.t0 > pw.dur + 0.14) {
+        pw.down = false; // idle tap finished; no key event will reset it
+      }
+    }
+
     if (cross > 0.05) {
       targetYaw = mix(targetYaw, this.crossHuffDir * 0.20, cross * 0.65);
       targetGazeX = mix(targetGazeX, this.crossHuffDir * 0.72, cross * 0.65);

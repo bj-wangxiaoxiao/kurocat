@@ -93,6 +93,7 @@ fn normalize_action(raw: &str) -> Option<&'static str> {
         "sleep" | "nap" | "zzz" => Some("sleep"),
         "wake" | "wakeup" => Some("wake"),
         "tail_pat" | "tail" | "slap" => Some("tail_pat"),
+        "knead" | "make_biscuits" => Some("knead"),
         _ => None,
     }
 }
@@ -1046,7 +1047,7 @@ fn execute_tool(
                 Some("MCP")
             };
             let Some(ev) = parse_hook_payload(args, default_src, None, None) else {
-                return err_text("Invalid 'action'. Expected one of: happy, pet, angry, curious, sleep, wake, tail_pat.");
+                return err_text("Invalid 'action'. Expected one of: happy, pet, angry, curious, sleep, wake, tail_pat, knead.");
             };
             on_agent_event(ev.clone());
             ok_text(json!({

@@ -32,6 +32,7 @@ export interface AgentCompanionTarget {
   triggerHappyDemo?(duration?: number): void;
   triggerWakeDemo?(): void;
   triggerTailPatDemo?(): void;
+  triggerIdleAct?(kind: string): boolean;
 }
 
 // Natural coding keystroke VKs (home-row letters, symbols, space, enter, backspace)
@@ -222,6 +223,10 @@ export class AgentCompanionController {
         } else {
           target.triggerCuriousDemo(is3d ? 1.5 : 1500);
         }
+        break;
+      case 'knead':
+      case 'make_biscuits':
+        target.triggerIdleAct?.(action);
         break;
       case 'tail_pat':
         if (target.triggerTailPatDemo) {
