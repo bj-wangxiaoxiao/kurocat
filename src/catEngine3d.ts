@@ -2136,8 +2136,8 @@ export class KuroCatEngine3D {
     paw.down = true;
     this.desk.setKeyDown(k.spec.id, true);
 
-    this.sSquash.kick(0.32);
-    this.sPitch.kick(0.75);
+    this.sSquash.kick(0.16);
+    this.sPitch.kick(0.45);
     if (this.showKeyBubbles) {
       this.spawnKeyPopup(k.spec.id, k.spec.bubble || k.spec.label || k.spec.id, paw.side);
     }
@@ -2575,7 +2575,7 @@ export class KuroCatEngine3D {
     }
 
     const targetHunch = typingActive
-      ? 0.09 + 0.08 * this.excite
+      ? 0.05 + 0.04 * this.excite
       : curious * 0.07 + (petActive ? -0.05 : 0);
     const targetSquash =
       this.sleepAmt * 0.20 +
@@ -2586,7 +2586,7 @@ export class KuroCatEngine3D {
     this.bend.x = this.sShift.step(targetShift, dt);
     this.bend.z = this.sHunch.step(targetHunch, dt);
     this.bend.squash = this.sSquash.step(targetSquash, dt);
-    this.bend.bellySwell = this.sleepAmt * 0.095 + (typingActive ? 0.035 : 0);
+    this.bend.bellySwell = this.sleepAmt * 0.095 + (typingActive ? 0.010 : 0);
 
     // 5) Head pose & silky eye tracking
     const gx = Math.tanh(this.cursorNdc.x * 1.45);
